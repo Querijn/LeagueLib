@@ -72,16 +72,15 @@ namespace LeagueLib
 	};
 
 	u32 FNV1Hash(const std::string& inString);
-	BinVariable ConstructType(File::Handle& file, size_t& offset, Type type);
+	BinVariable ConstructType(const File::Handle file, size_t& offset, Type type);
 
 	Bin::~Bin()
 	{
 	}
 
-#pragma optimize("", off)
 	void Bin::Load(const std::string& filePath, OnLoadFunction onLoadFunction)
 	{
-		m_file = File::Load(filePath.c_str(), [this, onLoadFunction](File::Handle file, File::LoadState loadState)
+		m_file = File::Load(filePath.c_str(), [this, onLoadFunction](File::Handle file, File::LoadState inLoadState)
 		{
 			m_linkedFiles.clear();
 			m_typeArray.clear();
@@ -91,9 +90,9 @@ namespace LeagueLib
 			m_entryCount = 0;
 			m_root = BinObject();
 
-			if (loadState != File::LoadState::Loaded)
+			if (inLoadState != File::LoadState::Loaded)
 			{
-				m_state = loadState;
+				m_loadState = inLoadState;
 				if (onLoadFunction)
 					onLoadFunction(*this);
 				return;
@@ -103,7 +102,7 @@ namespace LeagueLib
 			file->Read((u8*)prop, 4, m_offset);
 			if (memcmp(prop, "PROP", 4) != 0)
 			{
-				m_state = File::LoadState::FailedToLoad;
+				m_loadState = File::LoadState::FailedToLoad;
 				if (onLoadFunction)
 					onLoadFunction(*this);
 				return;
@@ -113,7 +112,7 @@ namespace LeagueLib
 			file->Get(version, m_offset);
 			if (version > 3)
 			{
-				m_state = File::LoadState::FailedToLoad;
+				m_loadState = File::LoadState::FailedToLoad;
 				if (onLoadFunction)
 					onLoadFunction(*this);
 				return;
@@ -145,15 +144,14 @@ namespace LeagueLib
 				file->Get(m_typeArray, m_entryCount, m_offset);
 
 			m_startOffset = m_offset;
-			m_state = File::LoadState::Loaded;
+			m_loadState = File::LoadState::Loaded;
 			if (onLoadFunction)
 				onLoadFunction(*this);
 		});
 	}
-#pragma optimize("", on)
 
 	template<typename T>
-	static BinVariable ReadSimple(File::Handle& file, size_t& offset)
+	static BinVariable ReadSimple(const File::Handle file, size_t& offset)
 	{
 		T data;
 		file->Get(data, offset);
@@ -161,7 +159,7 @@ namespace LeagueLib
 	}
 
 	template<typename T, typename StorageType, typename FileType, int ElementCount>
-	static BinVariable ReadVector(File::Handle& file, size_t& offset)
+	static BinVariable ReadVector(const File::Handle file, size_t& offset)
 	{
 		T data;
 		for (int i = 0; i < ElementCount; i++)
@@ -174,7 +172,7 @@ namespace LeagueLib
 		return data;
 	}
 
-	static BinVariable ReadArray(File::Handle& file, size_t& offset)
+	static BinVariable ReadArray(const File::Handle file, size_t& offset)
 	{
 		Type type;
 		file->Get(type, offset);
@@ -190,13 +188,13 @@ namespace LeagueLib
 		return result;
 	}
 
-	static BinVariable ReadU16Vec3(File::Handle& file, size_t& offset) { return ReadVector<glm::ivec3, glm::ivec3::value_type, u16, 3>(file, offset); }
-	static BinVariable ReadVec4(File::Handle& file, size_t& offset) { return ReadVector<glm::vec4, glm::vec4::value_type, float, 4>(file, offset); }
-	static BinVariable ReadVec3(File::Handle& file, size_t& offset) { return ReadVector<glm::vec3, glm::vec3::value_type, float, 3>(file, offset); }
-	static BinVariable ReadVec2(File::Handle& file, size_t& offset) { return ReadVector<glm::vec2, glm::vec2::value_type, float, 2>(file, offset); }
-	static BinVariable ReadRGBA(File::Handle& file, size_t& offset) { return ReadVector<glm::ivec4, glm::ivec4::value_type, u8, 4>(file, offset); }
+	static BinVariable ReadU16Vec3(const File::Handle file, size_t& offset) { return ReadVector<glm::ivec3, glm::ivec3::value_type, u16, 3>(file, offset); }
+	static BinVariable ReadVec4(const File::Handle file, size_t& offset) { return ReadVector<glm::vec4, glm::vec4::value_type, float, 4>(file, offset); }
+	static BinVariable ReadVec3(const File::Handle file, size_t& offset) { return ReadVector<glm::vec3, glm::vec3::value_type, float, 3>(file, offset); }
+	static BinVariable ReadVec2(const File::Handle file, size_t& offset) { return ReadVector<glm::vec2, glm::vec2::value_type, float, 2>(file, offset); }
+	static BinVariable ReadRGBA(const File::Handle file, size_t& offset) { return ReadVector<glm::ivec4, glm::ivec4::value_type, u8, 4>(file, offset); }
 
-	static BinVariable ReadString(File::Handle& file, size_t& offset)
+	static BinVariable ReadString(const File::Handle file, size_t& offset)
 	{
 		u16 stringLength;
 		file->Get(stringLength, offset);
@@ -313,10 +311,9 @@ namespace LeagueLib
 		return resultMatrix;
 	}
 
-	BinVariable ConstructType(File::Handle& file, size_t& offset, Type type)
+	BinVariable ConstructType(const File::Handle file, size_t& offset, Type type)
 	{
 		BinVariable result;
-		
 
 		switch (type)
 		{
@@ -372,7 +369,8 @@ namespace LeagueLib
 
 	const BinVariable& Bin::Find(u32 hashToFind)
 	{
-		assert(m_file && m_state == File::LoadState::Loaded);
+		std::lock_guard t(m_mutex);
+		assert(m_file && m_loadState == File::LoadState::Loaded);
 		m_offset = m_startOffset; // Reset offset to start offset.
 
 		// Go over each root object, create it and append it to m_root
@@ -427,32 +425,46 @@ namespace LeagueLib
 #endif
 	}
 
-	const BinVariable& Bin::operator[](u32 hash)
+	const BinVariable& Bin::operator[](u32 hash)  const
 	{
 #if BIN_USE_CACHE
-		const BinVariable& result = m_root[hash];
-		if (result.index() != 0)
-			return result;
-#endif
-
-		if (m_file && m_state == File::LoadState::Loaded)
-			return Find(hash);
-		static const BinVariable none;
-		return none;
-	}
-
-	const BinVariable& Bin::operator[](std::string_view name)
-	{
-		u32 hash = FNV1Hash(name.data());
-#if BIN_USE_CACHE
-		BinObject::iterator result = m_root.find(hash);
+		auto result = m_root.find(hash);
 		if (result != m_root.end())
 			return result->second;
 #endif
 
-		if (m_file && m_state == File::LoadState::Loaded)
-			return Find(hash);
+		if (m_file && m_loadState == File::LoadState::Loaded)
+			return const_cast<Bin*>(this)->Find(hash);
 		static const BinVariable none;
 		return none;
+	}
+
+	const BinVariable& Bin::operator[](std::string_view name)  const
+	{
+		u32 hash = FNV1Hash(name.data());
+#if BIN_USE_CACHE
+		auto result = m_root.find(hash);
+		if (result != m_root.end())
+			return result->second;
+#endif
+
+		if (m_file && m_loadState == File::LoadState::Loaded)
+			return const_cast<Bin*>(this)->Find(hash);
+		static const BinVariable none;
+		return none;
+	}
+
+	void Bin::Reset()
+	{
+		m_root = {};
+		m_linkedFiles.clear();
+		m_typeArray.clear();
+
+		m_offset = 0;
+		m_startOffset = 0;
+		m_entryCount = 0;
+
+		m_file = nullptr;
+		m_loadState = Spek::File::LoadState::NotLoaded;
 	}
 }

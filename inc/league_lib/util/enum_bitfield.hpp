@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include <spek/util/types.hpp>
 
 namespace LeagueLib

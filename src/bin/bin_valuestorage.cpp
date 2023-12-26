@@ -66,6 +66,43 @@ namespace LeagueLib
 		}, lhs, rhs);
 	}
 
+	const BinVariable& BinObject::operator[](u32 hash) const
+	{
+		static BinVariable none;
+		auto result = m_variables.find(hash);
+		if (result == m_variables.end())
+			return none;
+
+		return result->second;
+	}
+
+	const BinVariable& BinObject::operator[](std::string_view name) const
+	{
+		return operator[](FNV1Hash(name.data()));
+	}
+
+	BinVariable& BinObject::operator[](u32 hash)
+	{
+		return m_variables[hash];
+	}
+
+	BinVariable& BinObject::operator[](std::string_view name)
+	{
+		return operator[](FNV1Hash(name.data()));
+	}
+
+	BinObject::Map::const_iterator	BinObject::find(u32 hash) const	{ return m_variables.find(hash); }
+	BinObject::Map::iterator		BinObject::find(u32 hash)		{ return m_variables.find(hash); }
+
+	BinObject::Map::const_iterator	BinObject::find(std::string_view name) const { return m_variables.find(FNV1Hash(name.data())); }
+	BinObject::Map::iterator		BinObject::find(std::string_view name)		 { return m_variables.find(FNV1Hash(name.data()));}
+
+	BinObject::Map::const_iterator	BinObject::begin() const { return m_variables.begin(); }
+	BinObject::Map::iterator		BinObject::begin()		 { return m_variables.begin(); }
+
+	BinObject::Map::const_iterator	BinObject::end() const	{ return m_variables.end(); }
+	BinObject::Map::iterator		BinObject::end()		{ return m_variables.end(); }
+
 	BinVarRef BinVariable::operator[](size_t index) const
 	{
 		return std::visit([index](auto&& variable) -> BinVarRef
@@ -97,5 +134,5 @@ namespace LeagueLib
 		}, *this);
 	}
 
-	// bool BinVariable::IsValid() const { return !Is<std::monostate>(); }
+	bool BinVariable::IsValid() const { return !Is<std::monostate>(); }
 }
