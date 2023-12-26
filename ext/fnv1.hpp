@@ -22,7 +22,7 @@ namespace LeagueModel
 	constexpr u32 FNV1Hash(std::string_view a_string)
 	{
 		size_t hash = 0x811c9dc5;
-		for (size_t i = 0, str_length = string_length(a_string.data()); i < str_length; i++)
+		for (size_t i = 0, str_length = a_string.length(); i < str_length; i++)
 			hash = ((hash ^ to_lower_case(a_string[i])) * 0x01000193) % 0x100000000;
 
 		return (u32)hash;
