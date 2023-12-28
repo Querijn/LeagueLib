@@ -94,7 +94,7 @@ namespace LeagueLib
 			for (auto& wadEntry : fs::recursive_directory_iterator(m_root))
 			{
 				auto extension = wadEntry.path().extension();
-				if (wadEntry.is_regular_file() == false || extension != ".client")
+				if (wadEntry.is_regular_file() == false || (extension != ".client" && extension != ".mobile"))
 					continue;
 
 				m_archives.emplace_back(std::make_unique<WAD>(wadEntry.path().generic_string().c_str()));
