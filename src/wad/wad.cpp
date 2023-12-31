@@ -154,6 +154,7 @@ namespace LeagueLib
 			break;
 
 		case WAD::StorageType::ZSTD_COMPRESSED:
+		case WAD::StorageType::ZSTD_COMPRESSED_MULTI:
 		{
 			std::vector<char> compressedData(fileData.compressedSize);
 			fileStream.read(compressedData.data(), fileData.compressedSize);
