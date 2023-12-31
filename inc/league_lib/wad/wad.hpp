@@ -18,19 +18,20 @@ namespace LeagueLib
 			UNCOMPRESSED = 0,
 			ZLIB_COMPRESSED = 1,
 			UNKNOWN = 2,
-			ZSTD_COMPRESSED = 3
+			ZSTD_COMPRESSED = 3,
+			ZSTD_COMPRESSED_MULTI = 4
 		};
 	#pragma pack(push, 1)
 		struct FileData
 		{
-			uint64_t PathHash;
-			uint32_t Offset;
-			uint32_t CompressedSize;
-			uint32_t FileSize;
-			WAD::StorageType Type;
-			uint8_t Duplicate;
-			uint8_t Unknown[2];
-			uint64_t SHA256;
+			uint64_t pathHash;
+			uint32_t offset;
+			uint32_t compressedSize;
+			uint32_t fileSize;
+			uint8_t  typeData;
+			uint8_t  duplicate;
+			uint8_t  unknown[2];
+			uint64_t sha256;
 		};
 	#pragma pack(pop)
 
@@ -39,10 +40,10 @@ namespace LeagueLib
 			MinFileData();
 			MinFileData(const FileData& inFileData);
 
-			uint32_t Offset;
-			uint32_t CompressedSize;
-			uint32_t FileSize;
-			WAD::StorageType Type;
+			uint32_t offset;
+			uint32_t compressedSize;
+			uint32_t fileSize;
+			uint8_t  typeData;
 		};
 
 		using FileDataMap = std::unordered_map<FileNameHash, MinFileData>;

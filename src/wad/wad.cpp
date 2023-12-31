@@ -89,7 +89,7 @@ namespace LeagueLib
 		{
 			WAD::FileData source;
 			fileStream.read(reinterpret_cast<char*>(&source), sizeof(WAD::FileData));
-			m_fileData[source.PathHash] = source;
+			m_fileData[source.pathHash] = source;
 		}
 
 		m_loadState = File::LoadState::Loaded;
@@ -136,14 +136,15 @@ namespace LeagueLib
 
 		const auto& fileData = fileDataIterator->second;
 
-		fileStream.seekg(fileData.Offset, fileStream.beg);
+		fileStream.seekg(fileData.offset, fileStream.beg);
 
-		switch (fileData.Type)
+		WAD::StorageType type = (WAD::StorageType)(fileData.typeData & 0b1111);
+		switch (type)
 		{
 		case WAD::StorageType::UNCOMPRESSED:
 		{
-			inResult.resize(fileData.FileSize);
-			fileStream.read((char*)inResult.data(), fileData.FileSize);
+			inResult.resize(fileData.fileSize);
+			fileStream.read((char*)inResult.data(), fileData.fileSize);
 			break;
 		}
 
@@ -154,14 +155,14 @@ namespace LeagueLib
 
 		case WAD::StorageType::ZSTD_COMPRESSED:
 		{
-			std::vector<char> compressedData(fileData.CompressedSize);
-			fileStream.read(compressedData.data(), fileData.CompressedSize);
+			std::vector<char> compressedData(fileData.compressedSize);
+			fileStream.read(compressedData.data(), fileData.compressedSize);
 
-			size_t uncompressedSize = fileData.FileSize;
+			size_t uncompressedSize = fileData.fileSize;
 
 			std::vector<uint8_t> uncompressed;
 			uncompressed.resize(uncompressedSize);
-			size_t size = ZSTD_decompress(uncompressed.data(), uncompressedSize, compressedData.data(), fileData.CompressedSize);
+			size_t size = ZSTD_decompress(uncompressed.data(), uncompressedSize, compressedData.data(), fileData.compressedSize);
 			if (ZSTD_isError(size))
 			{
 				printf("ZSTD Error trying to unpack '%zu': %s", inHash, ZSTD_getErrorName(size));
@@ -173,7 +174,7 @@ namespace LeagueLib
 		}
 
 		default:
-			printf("Unidentified storage type detected: %d\n", fileData.Type);
+			printf("Unidentified storage type detected: %d\n", type);
 			break;
 		}
 
@@ -198,13 +199,14 @@ namespace LeagueLib
 
 		const auto& fileData = fileDataIterator->second;
 
-		fileStream.seekg(fileData.Offset, fileStream.beg);
+		fileStream.seekg(fileData.offset, fileStream.beg);
 
-		switch (fileData.Type)
+		WAD::StorageType type = (WAD::StorageType)(fileData.typeData & 0b1111);
+		switch (type)
 		{
 		case WAD::StorageType::UNCOMPRESSED:
 		{
-			fileStream.read((char*)inResult, fileData.FileSize);
+			fileStream.read((char*)inResult, fileData.fileSize);
 			return true;
 		}
 
@@ -215,26 +217,26 @@ namespace LeagueLib
 
 		case WAD::StorageType::ZSTD_COMPRESSED:
 		{
-			std::vector<char> compressedData(fileData.CompressedSize);
-			fileStream.read(compressedData.data(), fileData.CompressedSize);
+			std::vector<char> compressedData(fileData.compressedSize);
+			fileStream.read(compressedData.data(), fileData.compressedSize);
 
-			size_t uncompressedSize = fileData.FileSize;
+			size_t uncompressedSize = fileData.fileSize;
 
 			std::vector<uint8_t> uncompressed;
 			uncompressed.resize(uncompressedSize);
-			size_t size = ZSTD_decompress(uncompressed.data(), uncompressedSize, compressedData.data(), fileData.CompressedSize);
+			size_t size = ZSTD_decompress(uncompressed.data(), uncompressedSize, compressedData.data(), fileData.compressedSize);
 			if (ZSTD_isError(size))
 			{
 				printf("ZSTD Error trying to unpack '%zu': %s", inHash, ZSTD_getErrorName(size));
 				return false;
 			}
 
-			memcpy(inResult, uncompressed.data(), fileData.FileSize);
+			memcpy(inResult, uncompressed.data(), fileData.fileSize);
 			return true;
 		}
 
 		default:
-			printf("Unidentified storage type detected: %d\n", fileData.Type);
+			printf("Unidentified storage type detected: %d\n", type);
 			break;
 		}
 
@@ -252,7 +254,7 @@ namespace LeagueLib
 		if (fileDataIterator == m_fileData.end())
 			return ~0;
 
-		return fileDataIterator->second.FileSize;
+		return fileDataIterator->second.fileSize;
 	}
 
 	Spek::File::LoadState WAD::GetLoadState() const
@@ -264,9 +266,9 @@ namespace LeagueLib
 
 	WAD::MinFileData::MinFileData(const FileData& inFileData)
 	{
-		Offset = inFileData.Offset;
-		CompressedSize = inFileData.CompressedSize;
-		FileSize = inFileData.FileSize;
-		Type = inFileData.Type;
+		offset = inFileData.offset;
+		compressedSize = inFileData.compressedSize;
+		fileSize = inFileData.fileSize;
+		typeData = inFileData.typeData;
 	}
 }
