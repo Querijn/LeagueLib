@@ -30,7 +30,7 @@ namespace LeagueLib
 			uint32_t fileSize;
 			uint8_t  typeData;
 			uint8_t  duplicate;
-			uint8_t  unknown[2];
+			uint16_t firstSubchunkIndex;
 			uint64_t sha256;
 		};
 	#pragma pack(pop)
@@ -44,6 +44,7 @@ namespace LeagueLib
 			uint32_t compressedSize;
 			uint32_t fileSize;
 			uint8_t  typeData;
+			uint16_t firstSubchunkIndex;
 		};
 
 		using FileDataMap = std::unordered_map<FileNameHash, MinFileData>;
@@ -70,11 +71,12 @@ namespace LeagueLib
 		std::string GetFileName() const { return m_fileName; }
 
 	private:
+		std::vector<u8> m_subchunkStream;
 		FileDataMap m_fileData;
 		std::string m_fileName;
 		Spek::File::LoadState m_loadState = Spek::File::LoadState::NotLoaded;
 
-		struct { char Major = 0, Minor = 0; } m_version;
+		struct { char major = 0, minor = 0; } m_version;
 		bool m_isParsed = false;
 	};
 }
